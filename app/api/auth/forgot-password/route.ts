@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import User from "@/models/User"
 import crypto from "crypto"
+import nodemailer from "nodemailer"
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,40 +59,43 @@ export async function POST(req: NextRequest) {
     // Log the reset URL for testing purposes
     console.log("Password reset link:", resetUrl)
 
-    // In a production environment, you would send an email here
-    // For demonstration purposes, we'll set up a basic email configuration
-    // but comment it out to avoid actual email sending during testing
-
-    /*
-    // Create a test email account or use your own SMTP settings
+    // Configure Gmail transporter
     const transporter = nodemailer.createTransport({
-      host: "smtp.example.com",
+      service: "gmail",
+      host: "smtp.gmail.com",
       port: 587,
       secure: false, // true for 465, false for other ports
       auth: {
-        user: "your-email@example.com",
-        pass: "your-password",
+        user: process.env.EMAIL_USER || "your-email@gmail.com", // Your Gmail address
+        pass: process.env.EMAIL_PASSWORD || "your-app-password", // Your Gmail password or App Password
       },
-    });
+    })
 
-    // Send email
-    await transporter.sendMail({
-      from: '"Fitness App" <noreply@fitnessapp.com>',
-      to: email,
-      subject: "Password Reset Request",
-      text: `You requested a password reset. Please click the following link to reset your password: ${resetUrl}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #27AE60;">Password Reset Request</h2>
-          <p>You requested a password reset for your Fitness App account.</p>
-          <p>Please click the button below to reset your password. This link will expire in 1 hour.</p>
-          <a href="${resetUrl}" style="display: inline-block; background-color: #27AE60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 20px 0;">Reset Password</a>
-          <p>If you didn't request this password reset, you can safely ignore this email.</p>
-          <p>Regards,<br>The Fitness App Team</p>
-        </div>
-      `,
-    });
-    */
+    try {
+      // Send email
+      const info = await transporter.sendMail({
+        from: '"Fitness App" <your-email@gmail.com>', // Update with your email
+        to: email,
+        subject: "Password Reset Request",
+        text: `You requested a password reset. Please click the following link to reset your password: ${resetUrl}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #27AE60;">Password Reset Request</h2>
+            <p>You requested a password reset for your Fitness App account.</p>
+            <p>Please click the button below to reset your password. This link will expire in 1 hour.</p>
+            <a href="${resetUrl}" style="display: inline-block; background-color: #27AE60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 20px 0;">Reset Password</a>
+            <p>If you didn't request this password reset, you can safely ignore this email.</p>
+            <p>Regards,<br/>The Fitness App Team</p>
+          </div>
+        `,
+      })
+
+      console.log("Email sent successfully:", info.messageId)
+    } catch (emailError) {
+      console.error("Error sending email:", emailError)
+      // We don't want to return an error to the client if email sending fails
+      // for security reasons, but we log it for debugging
+    }
 
     // Return success response
     return NextResponse.json({
