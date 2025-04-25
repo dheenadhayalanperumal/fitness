@@ -61,10 +61,10 @@ export async function POST(req: NextRequest) {
 
     // Configure Gmail transporter
     const transporter = nodemailer.createTransport({
-      service: "gmail",
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false, // true for 465, false for other ports
+      service: "titan",
+      host: "smtp.titan.email",
+      port: 465,
+      secure: true, // true for 465, false for other ports
       auth: {
         user: process.env.EMAIL_USER || "your-email@gmail.com", // Your Gmail address
         pass: process.env.EMAIL_PASSWORD || "your-app-password", // Your Gmail password or App Password
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     try {
       // Send email
       const info = await transporter.sendMail({
-        from: '"Fitness App" <your-email@gmail.com>', // Update with your email
+      from: `"Fitness App" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Password Reset Request",
         text: `You requested a password reset. Please click the following link to reset your password: ${resetUrl}`,
