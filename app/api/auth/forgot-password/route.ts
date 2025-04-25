@@ -2,15 +2,19 @@ import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import User from "@/models/User"
 import crypto from "crypto"
-import nodemailer from "nodemailer"
+import { sendPasswordResetEmail } from "@/lib/email-service"
 
 export async function POST(req: NextRequest) {
   try {
+    console.log("Password reset request initiated")
+
     // Get email from request
     const { email } = await req.json()
+    console.log(`Password reset requested for email: ${email}`)
 
     // Validate email
     if (!email || typeof email !== "string") {
+      console.log("Invalid email format provided")
       return NextResponse.json(
         {
           error: "Invalid email",
@@ -22,23 +26,36 @@ export async function POST(req: NextRequest) {
     }
 
     // Connect to database
-    await connectToDatabase()
+    console.log("Connecting to database...")
+    try {
+      await connectToDatabase()
+      console.log("Database connection successful")
+    } catch (dbError) {
+      console.error("Database connection failed:", dbError)
+      return NextResponse.json(
+        {
+          error: "Database error",
+          message: "Failed to connect to the database",
+        },
+        { status: 500 },
+      )
+    }
 
     // Find user by email (case-insensitive)
+    console.log(`Searching for user with email: ${email}`)
     const user = await User.findOne({
       email: { $regex: new RegExp(`^${email.toLowerCase().trim()}$`, "i") },
     })
 
     // If no user found, we still return success for security reasons
-    // This prevents email enumeration attacks
     if (!user) {
-      console.log(`Password reset requested for non-existent email: ${email}`)
-
-      // Return success even though no email will be sent
+      console.log(`User not found for email: ${email}`)
       return NextResponse.json({
         message: "If an account with that email exists, we've sent a password reset link",
       })
     }
+
+    console.log(`User found: ${user._id}`)
 
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString("hex")
@@ -48,61 +65,47 @@ export async function POST(req: NextRequest) {
     const tokenExpiry = new Date(Date.now() + 60 * 60 * 1000)
 
     // Save token to user
-    user.resetToken = hashedToken
-    user.resetTokenExpiry = tokenExpiry
-    await user.save()
+    console.log("Saving reset token to user")
+    try {
+      user.resetToken = hashedToken
+      user.resetTokenExpiry = tokenExpiry
+      await user.save()
+      console.log("Reset token saved successfully")
+    } catch (tokenError) {
+      console.error("Failed to save reset token:", tokenError)
+      return NextResponse.json(
+        {
+          error: "Token error",
+          message: "Failed to generate reset token",
+        },
+        { status: 500 },
+      )
+    }
 
     // Create reset URL
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`
+    console.log("Reset URL generated:", resetUrl)
 
-    // Log the reset URL for testing purposes
-    console.log("Password reset link:", resetUrl)
+    // Send password reset email using our centralized service
+    console.log("Sending password reset email...")
+    const emailResult = await sendPasswordResetEmail(email, resetUrl)
 
-    // Configure Gmail transporter
-    const transporter = nodemailer.createTransport({
-      service: "titan",
-      host: "smtp.titan.email",
-      port: 465,
-      secure: true, // true for 465, false for other ports
-      auth: {
-        user: process.env.EMAIL_USER || "your-email@gmail.com", // Your Gmail address
-        pass: process.env.EMAIL_PASSWORD || "your-app-password", // Your Gmail password or App Password
-      },
-    })
-
-    try {
-      // Send email
-      const info = await transporter.sendMail({
-      from: `"Fitness App" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: "Password Reset Request",
-        text: `You requested a password reset. Please click the following link to reset your password: ${resetUrl}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #27AE60;">Password Reset Request</h2>
-            <p>You requested a password reset for your Fitness App account.</p>
-            <p>Please click the button below to reset your password. This link will expire in 1 hour.</p>
-            <a href="${resetUrl}" style="display: inline-block; background-color: #27AE60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 20px 0;">Reset Password</a>
-            <p>If you didn't request this password reset, you can safely ignore this email.</p>
-            <p>Regards,<br/>The Fitness App Team</p>
-          </div>
-        `,
-      })
-
-      console.log("Email sent successfully:", info.messageId)
-    } catch (emailError) {
-      console.error("Error sending email:", emailError)
-      // We don't want to return an error to the client if email sending fails
-      // for security reasons, but we log it for debugging
+    if (emailResult.success) {
+      console.log("Password reset email sent successfully:", emailResult.messageId)
+    } else {
+      console.error("Failed to send password reset email:", emailResult.error)
+      console.error("Error details:", emailResult.details)
+      // We don't return an error to the client for security reasons
     }
 
     // Return success response
+    console.log("Password reset process completed, returning success response")
     return NextResponse.json({
       message: "If an account with that email exists, we've sent a password reset link",
     })
   } catch (error) {
-    console.error("Password reset request error:", error)
+    console.error("Unhandled error in password reset process:", error)
     return NextResponse.json(
       {
         error: "Server error",
