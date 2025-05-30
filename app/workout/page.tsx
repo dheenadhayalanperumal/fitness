@@ -30,9 +30,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { BottomNav } from "@/components/bottom-nav"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
 export default function WorkoutPage() {
-  const { workouts, predefinedExercises, addWorkout } = useFitness()
+  const { workouts, predefinedExercises, addWorkout, dataLoaded } = useFitness()
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [activeTab, setActiveTab] = useState("log")
 
@@ -254,6 +255,10 @@ export default function WorkoutPage() {
 
   // Sort workouts by date (newest first)
   const sortedWorkouts = [...workouts].sort((a, b) => b.timestamp - a.timestamp)
+
+  if (!dataLoaded) {
+    return <LoadingSpinner />
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
