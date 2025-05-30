@@ -2,8 +2,9 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Activity, Dumbbell, Droplets, Utensils, Weight } from "lucide-react"
+import { Activity, Dumbbell, Droplets, Utensils, Weight, Info, Plus } from "lucide-react"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -11,6 +12,7 @@ import { useFitness } from "@/context/fitness-context"
 import { BottomNav } from "@/components/bottom-nav"
 import { StepTrackingWidget } from "@/components/step-tracking-widget"
 import ProtectedRoute from "@/components/protected-route"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export default function HomePage() {
   const router = useRouter()
@@ -51,29 +53,62 @@ export default function HomePage() {
                 <h1 className="text-2xl font-bold md:text-3xl">Hello, {profile.name?.split(" ")[0] || "there"}!</h1>
                 <p className="text-muted-foreground">Here's your daily progress</p>
               </div>
-              <div className="hidden md:block">
-                <Link href="/settings">
-                  <button className="px-4 py-2 rounded-md bg-secondary hover:bg-secondary/80 text-sm font-medium">
-                    Settings
-                  </button>
-                </Link>
+              <div className="flex items-center gap-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="icon" className="hidden md:flex">
+                        <Info className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Track your daily fitness goals and progress</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <div className="hidden md:block">
+                  <Link href="/settings">
+                    <Button variant="secondary">Settings</Button>
+                  </Link>
+                </div>
               </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {/* Main tracking widgets */}
               <div className="md:col-span-2 lg:col-span-3 grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                <Link href="/steps" className="block">
+                <Link href="/steps" className="block group">
                   <Card className="h-full transition-all hover:shadow-md">
                     <CardHeader className="p-4 pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center">
-                        <Activity className="h-4 w-4 mr-1 text-green-500" />
-                        Steps
+                      <CardTitle className="text-sm font-medium flex items-center justify-between">
+                        <span className="flex items-center">
+                          <Activity className="h-4 w-4 mr-1 text-green-500" />
+                          Steps
+                        </span>
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
                       <div className="text-2xl font-bold">{todaySteps.toLocaleString()}</div>
-                      <Progress value={stepsProgress} className="h-2 mt-2" />
+                      <div className="relative pt-2">
+                        <Progress value={stepsProgress} className="h-2" />
+                        <div className="absolute -top-1 transition-all" style={{ left: `${Math.min(stepsProgress, 100)}%` }}>
+                          <div className="relative -ml-1">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="h-4 w-4 rounded-full bg-primary" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{Math.round(stepsProgress)}% completed</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </div>
+                      </div>
                       <CardDescription className="mt-1 text-xs">
                         {Math.round(stepsProgress)}% of {goals.steps.toLocaleString()}
                       </CardDescription>
@@ -81,17 +116,38 @@ export default function HomePage() {
                   </Card>
                 </Link>
 
-                <Link href="/water" className="block">
+                <Link href="/water" className="block group">
                   <Card className="h-full transition-all hover:shadow-md">
                     <CardHeader className="p-4 pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center">
-                        <Droplets className="h-4 w-4 mr-1 text-blue-500" />
-                        Water
+                      <CardTitle className="text-sm font-medium flex items-center justify-between">
+                        <span className="flex items-center">
+                          <Droplets className="h-4 w-4 mr-1 text-blue-500" />
+                          Water
+                        </span>
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
                       <div className="text-2xl font-bold">{todayWaterTotal.toFixed(1)}L</div>
-                      <Progress value={waterProgress} className="h-2 mt-2" />
+                      <div className="relative pt-2">
+                        <Progress value={waterProgress} className="h-2" />
+                        <div className="absolute -top-1 transition-all" style={{ left: `${Math.min(waterProgress, 100)}%` }}>
+                          <div className="relative -ml-1">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="h-4 w-4 rounded-full bg-primary" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{Math.round(waterProgress)}% completed</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </div>
+                      </div>
                       <CardDescription className="mt-1 text-xs">
                         {Math.round(waterProgress)}% of {goals.water}L
                       </CardDescription>
@@ -99,17 +155,38 @@ export default function HomePage() {
                   </Card>
                 </Link>
 
-                <Link href="/diet" className="block">
+                <Link href="/diet" className="block group">
                   <Card className="h-full transition-all hover:shadow-md">
                     <CardHeader className="p-4 pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center">
-                        <Utensils className="h-4 w-4 mr-1 text-orange-500" />
-                        Calories
+                      <CardTitle className="text-sm font-medium flex items-center justify-between">
+                        <span className="flex items-center">
+                          <Utensils className="h-4 w-4 mr-1 text-orange-500" />
+                          Calories
+                        </span>
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
                       <div className="text-2xl font-bold">{todayCalories.toLocaleString()}</div>
-                      <Progress value={caloriesProgress} className="h-2 mt-2" />
+                      <div className="relative pt-2">
+                        <Progress value={caloriesProgress} className="h-2" />
+                        <div className="absolute -top-1 transition-all" style={{ left: `${Math.min(caloriesProgress, 100)}%` }}>
+                          <div className="relative -ml-1">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="h-4 w-4 rounded-full bg-primary" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{Math.round(caloriesProgress)}% completed</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </div>
+                      </div>
                       <CardDescription className="mt-1 text-xs">
                         {Math.round(caloriesProgress)}% of {goals.calories.toLocaleString()}
                       </CardDescription>
@@ -117,17 +194,36 @@ export default function HomePage() {
                   </Card>
                 </Link>
 
-                <Link href="/weight" className="block">
+                <Link href="/weight" className="block group">
                   <Card className="h-full transition-all hover:shadow-md">
                     <CardHeader className="p-4 pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center">
-                        <Weight className="h-4 w-4 mr-1 text-purple-500" />
-                        Weight
+                      <CardTitle className="text-sm font-medium flex items-center justify-between">
+                        <span className="flex items-center">
+                          <Weight className="h-4 w-4 mr-1 text-purple-500" />
+                          Weight
+                        </span>
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
                       <div className="text-2xl font-bold">{currentWeight} kg</div>
-                      <CardDescription className="mt-1 text-xs">Goal: {goals.weight} kg</CardDescription>
+                      <div className="flex items-center justify-between mt-2">
+                        <CardDescription className="text-xs">Goal: {goals.weight} kg</CardDescription>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <CardDescription className="text-xs cursor-help">
+                                {currentWeight > goals.weight ? "To lose" : "To gain"}: {Math.abs(currentWeight - goals.weight).toFixed(1)} kg
+                              </CardDescription>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Distance to your target weight</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </CardContent>
                   </Card>
                 </Link>
@@ -135,26 +231,65 @@ export default function HomePage() {
 
               {/* Step tracking widget */}
               <div className="md:col-span-1 lg:row-span-2">
-                <StepTrackingWidget />
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle>Step Tracking</CardTitle>
+                    <CardDescription>Real-time step counting</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <StepTrackingWidget />
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Weekly activity chart */}
               <Card className="md:col-span-1 lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>Weekly Activity</CardTitle>
-                  <CardDescription>Your step count for the past week</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Weekly Activity</CardTitle>
+                    <CardDescription>Your step count for the past week</CardDescription>
+                  </div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon">
+                          <Info className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Each bar represents your daily steps compared to your goal</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </CardHeader>
                 <CardContent>
                   <div className="h-[200px] flex items-end justify-between gap-2">
                     {weeklySteps.map((value, i) => {
                       const percentage = Math.min(Math.round((value / goals.steps) * 100), 100)
+                      const date = new Date()
+                      date.setDate(date.getDate() - 6 + i)
+                      const dayName = date.toLocaleDateString("en-US", { weekday: "short" })
+                      
                       return (
-                        <div key={i} className="relative w-full">
-                          <div
-                            className="absolute bottom-0 w-full rounded-md bg-[#27AE60] transition-all"
-                            style={{ height: `${percentage}%` }}
-                          />
-                        </div>
+                        <TooltipProvider key={i}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="relative w-full cursor-pointer">
+                                <div
+                                  className="absolute bottom-0 w-full rounded-md bg-[#27AE60] transition-all hover:bg-[#219653]"
+                                  style={{ height: `${percentage}%` }}
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div className="text-center">
+                                <p className="font-semibold">{value.toLocaleString()} steps</p>
+                                <p className="text-xs text-muted-foreground">{dayName}</p>
+                                <p className="text-xs text-muted-foreground">{percentage}% of goal</p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       )
                     })}
                   </div>
@@ -169,36 +304,36 @@ export default function HomePage() {
               </Card>
 
               {/* Quick actions */}
-              <Card className="lg:col-span-3">
+              <Card className="md:col-span-2 lg:col-span-3">
                 <CardHeader>
                   <CardTitle>Quick Actions</CardTitle>
-                  <CardDescription>Log your activities</CardDescription>
+                  <CardDescription>Common tasks and shortcuts</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    <Link href="/diet">
-                      <button className="w-full h-20 sm:h-24 rounded-lg bg-secondary hover:bg-secondary/80 flex flex-col items-center justify-center gap-2 transition-colors">
-                        <Utensils className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
-                        <span className="text-xs sm:text-sm font-medium">Log Meal</span>
-                      </button>
-                    </Link>
-                    <Link href="/workout">
-                      <button className="w-full h-20 sm:h-24 rounded-lg bg-secondary hover:bg-secondary/80 flex flex-col items-center justify-center gap-2 transition-colors">
-                        <Dumbbell className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500" />
-                        <span className="text-xs sm:text-sm font-medium">Log Workout</span>
-                      </button>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Link href="/steps">
+                      <Button variant="outline" className="w-full">
+                        <Activity className="mr-2 h-4 w-4" />
+                        Track Steps
+                      </Button>
                     </Link>
                     <Link href="/water">
-                      <button className="w-full h-20 sm:h-24 rounded-lg bg-secondary hover:bg-secondary/80 flex flex-col items-center justify-center gap-2 transition-colors">
-                        <Droplets className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
-                        <span className="text-xs sm:text-sm font-medium">Log Water</span>
-                      </button>
+                      <Button variant="outline" className="w-full">
+                        <Droplets className="mr-2 h-4 w-4" />
+                        Add Water
+                      </Button>
+                    </Link>
+                    <Link href="/diet">
+                      <Button variant="outline" className="w-full">
+                        <Utensils className="mr-2 h-4 w-4" />
+                        Log Meal
+                      </Button>
                     </Link>
                     <Link href="/weight">
-                      <button className="w-full h-20 sm:h-24 rounded-lg bg-secondary hover:bg-secondary/80 flex flex-col items-center justify-center gap-2 transition-colors">
-                        <Weight className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
-                        <span className="text-xs sm:text-sm font-medium">Log Weight</span>
-                      </button>
+                      <Button variant="outline" className="w-full">
+                        <Weight className="mr-2 h-4 w-4" />
+                        Update Weight
+                      </Button>
                     </Link>
                   </div>
                 </CardContent>
@@ -206,7 +341,6 @@ export default function HomePage() {
             </div>
           </div>
         </main>
-
         <BottomNav />
       </div>
     </ProtectedRoute>
