@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Activity, Dumbbell, Droplets, Utensils, Weight, Info, Plus } from "lucide-react"
+import { Droplets, Utensils, Weight, Plus } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
@@ -11,24 +11,17 @@ import { Progress } from "@/components/ui/progress"
 import { useFitness } from "@/context/fitness-context"
 import { BottomNav } from "@/components/bottom-nav"
 import ProtectedRoute from "@/components/protected-route"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export default function HomePage() {
   const router = useRouter()
   const {
     profile,
     goals,
-    todaySteps,
     todayWaterTotal,
     todayCalories,
     dataLoaded,
     currentWeight,
-    workouts,
-    getWeeklyStepCount,
-    meals,
   } = useFitness()
-
-  const weeklySteps = getWeeklyStepCount()
 
   // Redirect to onboarding if profile is not set up
   useEffect(() => {

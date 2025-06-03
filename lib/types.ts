@@ -2,22 +2,16 @@ export type Meal = {
   id: string
   name: string
   calories: number
-  portion: string
-  time: string
-  category: "breakfast" | "lunch" | "dinner" | "snack"
-  nutrition?: {
-    carbs: number
-    protein: number
-    fat: number
-    fiber?: number
-    sugar?: number
-    sodium?: number
-  }
+  protein?: number
+  carbs?: number
+  fat?: number
+  time?: string
+  timestamp: number
 }
 
 export type WaterEntry = {
   id: string
-  amount: number
+  amount: number // in milliliters
   time: string
   timestamp: number
 }
@@ -25,7 +19,7 @@ export type WaterEntry = {
 export type Exercise = {
   id: string
   name: string
-  category: "strength" | "cardio" | "flexibility" | "sports" | "other"
+  category: "strength" | "cardio" | "flexibility" | "sports"
   caloriesPerMinute: number
   isCustom?: boolean
 }
@@ -51,12 +45,19 @@ export type WorkoutExercise = {
 export type WorkoutEntry = {
   id: string
   name: string
-  exercises: WorkoutExercise[]
+  type: string
   duration: number // in minutes
-  caloriesBurned: number
-  date: string
+  calories: number
+  exercises: {
+    id: string
+    name: string
+    sets?: number
+    reps?: number
+    weight?: number
+    duration?: number // in minutes
+  }[]
+  date?: string
   timestamp: number
-  notes?: string
 }
 
 export type WeightEntry = {
@@ -83,11 +84,10 @@ export type UserProfile = {
 }
 
 export type UserGoals = {
-  steps: number
   calories: number
-  water: number
-  sleep: number
-  weight: number
+  water: number // in liters
+  sleep: number // in hours
+  weight: number // target weight in kg
 }
 
 export type AppSettings = {
@@ -108,7 +108,7 @@ export type Achievement = {
 
 export type ActivityHistoryItem = {
   id: string
-  type: "weight" | "workout" | "steps" | "goal"
+  type: "water" | "meal" | "workout" | "weight" | "goal"
   title: string
   description: string
   date: string

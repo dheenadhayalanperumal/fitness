@@ -63,12 +63,6 @@ interface FitnessContextType {
   settings: AppSettings
   updateSettings: (settings: Partial<AppSettings>) => void
 
-  // Steps tracking
-  steps: StepEntry[]
-  todaySteps: number
-  getStepsForDate: (date: string) => number
-  addSteps: (count: number) => void
-
   // Water tracking
   waterEntries: WaterEntry[]
   todayWaterTotal: number
@@ -107,9 +101,7 @@ interface FitnessContextType {
 
   // Utility
   calculateBMI: () => number
-  getWeeklyStepCount: () => number[]
   getWeeklyProgress: () => {
-    steps: { current: number; goal: number }
     water: { current: number; goal: number }
     workouts: { current: number; goal: number }
     sleep: { current: number; goal: number }
@@ -244,7 +236,6 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings)
 
   // Initialize with empty arrays for all tracking data
-  const [steps, setSteps] = useState<StepEntry[]>([])
   const [waterEntries, setWaterEntries] = useState<WaterEntry[]>([])
   const [meals, setMeals] = useState<Meal[]>([])
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([])
@@ -525,7 +516,6 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
       if (data.profile) setProfile(data.profile)
       if (data.goals) setGoals(data.goals)
       if (data.settings) setSettings(data.settings)
-      if (data.steps) setSteps(data.steps)
       if (data.waterEntries) setWaterEntries(data.waterEntries)
       if (data.meals) setMeals(data.meals)
       if (data.weightEntries) setWeightEntries(data.weightEntries)
@@ -546,7 +536,6 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
         profile,
         goals,
         settings,
-        steps,
         waterEntries,
         meals,
         weightEntries,
@@ -596,7 +585,7 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
 
       return () => clearTimeout(debounce)
     }
-  }, [profile, goals, settings, steps, waterEntries, meals, weightEntries, workouts, user, token, dataLoaded])
+  }, [profile, goals, settings, waterEntries, meals, weightEntries, workouts, user, token, dataLoaded])
 
   // Enable notifications
   const enableNotifications = async () => {
@@ -643,11 +632,6 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Date-specific data retrieval functions
-  const getStepsForDate = (date: string): number => {
-    const entry = steps.find((step) => step.date === date)
-    return entry?.count || 0
-  }
-
   const getWaterEntriesForDate = (date: string): WaterEntry[] => {
     const today = getDateString()
     const targetDate = date || today
@@ -712,9 +696,6 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
       return workout.date === date
     })
   }
-
-  // Calculate today's steps
-  const todaySteps = getStepsForDate(getDateString())
 
   // Calculate today's water intake
   const todayWaterTotal = getWaterTotalForDate(getDateString())
@@ -832,47 +813,6 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
     // Handle notification settings
     if (newSettings.notifications !== undefined && newSettings.notifications) {
       enableNotifications()
-    }
-  }
-
-  // Add steps
-  const addSteps = (count: number) => {
-    const today = getDateString()
-    const existingEntry = steps.find((entry) => entry.date === today)
-
-    if (existingEntry) {
-      // Update existing entry
-      setSteps((prev) =>
-        prev.map((entry) =>
-          entry.id === existingEntry.id ? { ...entry, count: entry.count + count, timestamp: Date.now() } : entry,
-        ),
-      )
-    } else {
-      // Create new entry
-      const newEntry: StepEntry = {
-        id: generateId(),
-        count,
-        date: today,
-        timestamp: Date.now(),
-      }
-      setSteps((prev) => [...prev, newEntry])
-    }
-
-    setLastActivityTime(Date.now()) // Update last activity time
-
-    // Check if goal reached
-    const updatedCount = (existingEntry?.count || 0) + count
-    if (updatedCount >= goals.steps && (existingEntry?.count || 0) < goals.steps) {
-      // Add to activity history
-      const newActivity: ActivityHistoryItem = {
-        id: generateId(),
-        type: "steps",
-        title: "Reached Step Goal",
-        description: `${updatedCount.toLocaleString()} steps`,
-        date: "Today",
-        timestamp: Date.now(),
-      }
-      setActivityHistory((prev) => [newActivity, ...prev])
     }
   }
 
@@ -1082,28 +1022,8 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
     return calculateBMI(currentWeight, profile.height)
   }
 
-  // Get weekly step count
-  const getWeeklyStepCount = () => {
-    const today = new Date()
-    const weeklySteps = []
-
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today)
-      date.setDate(today.getDate() - i)
-      const dateString = getDateString(date)
-
-      const stepCount = getStepsForDate(dateString)
-      weeklySteps.push(stepCount)
-    }
-
-    return weeklySteps
-  }
-
   // Get weekly progress
   const getWeeklyProgress = () => {
-    // Calculate weekly steps
-    const weeklySteps = getWeeklyStepCount().reduce((sum, count) => sum + count, 0)
-
     // Calculate weekly water (using actual data now)
     let weeklyWater = 0
     for (let i = 0; i < 7; i++) {
@@ -1121,7 +1041,6 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
     const weeklySleep = 45 // hours per week
 
     return {
-      steps: { current: weeklySteps, goal: goals.steps * 7 },
       water: { current: weeklyWater, goal: goals.water * 7 },
       workouts: { current: weeklyWorkouts, goal: 4 },
       sleep: { current: weeklySleep, goal: goals.sleep * 7 },
@@ -1198,7 +1117,6 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
       const storedProfile = localStorage.getItem("fitness_profile")
       const storedGoals = localStorage.getItem("fitness_goals")
       const storedSettings = localStorage.getItem("fitness_settings")
-      const storedSteps = localStorage.getItem("fitness_steps")
       const storedWaterEntries = localStorage.getItem("fitness_water")
       const storedMeals = localStorage.getItem("fitness_meals")
       const storedWeightEntries = localStorage.getItem("fitness_weight")
@@ -1208,7 +1126,6 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
       if (storedProfile) setProfile(JSON.parse(storedProfile))
       if (storedGoals) setGoals(JSON.parse(storedGoals))
       if (storedSettings) setSettings(JSON.parse(storedSettings))
-      if (storedSteps) setSteps(JSON.parse(storedSteps))
       if (storedWaterEntries) setWaterEntries(JSON.parse(storedWaterEntries))
       if (storedMeals) setMeals(JSON.parse(storedMeals))
       if (storedWeightEntries) setWeightEntries(JSON.parse(storedWeightEntries))
@@ -1226,14 +1143,13 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("fitness_profile", JSON.stringify(profile))
       localStorage.setItem("fitness_goals", JSON.stringify(goals))
       localStorage.setItem("fitness_settings", JSON.stringify(settings))
-      localStorage.setItem("fitness_steps", JSON.stringify(steps))
       localStorage.setItem("fitness_water", JSON.stringify(waterEntries))
       localStorage.setItem("fitness_meals", JSON.stringify(meals))
       localStorage.setItem("fitness_weight", JSON.stringify(weightEntries))
       localStorage.setItem("fitness_workouts", JSON.stringify(workouts))
       localStorage.setItem("fitness_exercises", JSON.stringify(predefinedExercises))
     }
-  }, [profile, goals, settings, steps, waterEntries, meals, weightEntries, workouts, predefinedExercises])
+  }, [profile, goals, settings, waterEntries, meals, weightEntries, workouts, predefinedExercises])
 
   // Apply dark mode on initial load
   useEffect(() => {
@@ -1270,12 +1186,6 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
         updateGoals,
         settings,
         updateSettings,
-
-        // Steps tracking
-        steps,
-        todaySteps,
-        getStepsForDate,
-        addSteps,
 
         // Water tracking
         waterEntries,
@@ -1315,10 +1225,9 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
 
         // Utility
         calculateBMI: calculateUserBMI,
-        getWeeklyStepCount,
         getWeeklyProgress,
 
-        // Add these new values
+        // Notification settings
         notificationsEnabled,
         enableNotifications,
         searchFoods,
