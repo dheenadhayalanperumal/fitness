@@ -1,64 +1,55 @@
-import mongoose, { Schema, type Document } from "mongoose"
+import mongoose from "mongoose"
 
-export interface IFitnessData extends Document {
-  userId: mongoose.Types.ObjectId
-  steps: any[]
-  waterEntries: any[]
-  meals: any[]
-  weightEntries: any[]
-  workouts: any[]
-  profile: {
-    name: string
-    email: string
-    mobileNumber?: string
-    height: number
-    weight: number
-    birthdate: string
-    dietPurpose?: "lose" | "maintain" | "gain"
-  }
-  goals: {
-    steps: number
-    calories: number
-    water: number
-    sleep: number
-    weight: number
-  }
-  settings: {
-    darkMode: boolean
-    notifications: boolean
-    healthSync: boolean
-  }
-}
+const fitnessDataSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true,
+    },
+    profile: {
+      name: { type: String, default: "John Doe" },
+      email: { type: String, required: true },
+      height: { type: Number },
+      weight: { type: Number },
+      age: { type: Number },
+      gender: { type: String, enum: ["male", "female", "other"] },
+    },
+    goals: {
+      water: { type: Number, default: 2.5 }, // in liters
+      calories: { type: Number, default: 2000 },
+      weight: { type: Number, default: 70 }, // in kg
+    },
+    waterLog: [
+      {
+        amount: { type: Number, required: true }, // in liters
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
+    caloriesLog: [
+      {
+        amount: { type: Number, required: true },
+        description: String,
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
+    weightLog: [
+      {
+        weight: { type: Number, required: true }, // in kg
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
+  },
+  { timestamps: true },
+)
 
-const FitnessDataSchema: Schema = new Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  steps: { type: Array, default: [] },
-  waterEntries: { type: Array, default: [] },
-  meals: { type: Array, default: [] },
-  weightEntries: { type: Array, default: [] },
-  workouts: { type: Array, default: [] },
-  profile: {
-    name: { type: String, required: true },
-    email: { type: String, required: true },
-    mobileNumber: { type: String },
-    height: { type: Number, default: 175 },
-    weight: { type: Number, default: 70 },
-    birthdate: { type: String, default: "" },
-    dietPurpose: { type: String, enum: ["lose", "maintain", "gain"], default: "maintain" },
-  },
-  goals: {
-    steps: { type: Number, default: 10000 },
-    calories: { type: Number, default: 2000 },
-    water: { type: Number, default: 2.5 },
-    sleep: { type: Number, default: 8 },
-    weight: { type: Number, default: 70 },
-  },
-  settings: {
-    darkMode: { type: Boolean, default: false },
-    notifications: { type: Boolean, default: true },
-    healthSync: { type: Boolean, default: false },
-  },
-})
+// Create indexes for better query performance
+fitnessDataSchema.index({ userId: 1 })
+fitnessDataSchema.index({ "waterLog.timestamp": -1 })
+fitnessDataSchema.index({ "caloriesLog.timestamp": -1 })
+fitnessDataSchema.index({ "weightLog.timestamp": -1 })
 
-// Check if model exists before creating a new one (for Next.js hot reloading)
-export default mongoose.models.FitnessData || mongoose.model<IFitnessData>("FitnessData", FitnessDataSchema)
+const FitnessData = mongoose.models.FitnessData || mongoose.model("FitnessData", fitnessDataSchema)
+
+export default FitnessData

@@ -627,9 +627,9 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
     // BMR calculation
     let bmr = 0
     if (isMale) {
-      bmr = 10 * currentWeight + 6.25 * profile.height - 5 * age + 5
+      bmr = 10 * profile.weight + 6.25 * profile.height - 5 * age + 5
     } else {
-      bmr = 10 * currentWeight + 6.25 * profile.height - 5 * age - 161
+      bmr = 10 * profile.weight + 6.25 * profile.height - 5 * age - 161
     }
 
     // Activity multiplier (default to moderate)
