@@ -11,6 +11,12 @@ interface AccurateStepCounterOptions {
   onCalibrationComplete?: () => void
 }
 
+// Constants for step detection
+const WINDOW_SIZE = 10
+const MIN_STEP_FREQUENCY = 250 // Minimum time between steps (ms)
+const MAX_STEP_FREQUENCY = 2000 // Maximum time between steps (ms)
+const CALIBRATION_SAMPLES = 100
+
 export function useAccurateStepCounter({
   sensitivity = 1.2,
   timeThreshold = 250,
@@ -24,7 +30,7 @@ export function useAccurateStepCounter({
   const [isCalibrating, setIsCalibrating] = useState(false)
   const [userSensitivity, setUserSensitivity] = useState(sensitivity)
 
-  // References for tracking state
+  // Advanced tracking state
   const lastStepTime = useRef(0)
   const calibrationData = useRef<number[]>([])
   const movingAverage = useRef<number[]>([])
@@ -33,8 +39,14 @@ export function useAccurateStepCounter({
   const inStep = useRef(false)
   const lastValues = useRef<number[]>([])
   const calibrationTimer = useRef<NodeJS.Timeout | null>(null)
+  
+  // New refs for improved detection
+  const stepPattern = useRef<number[]>([])
+  const noiseFloor = useRef(0.1)
+  const adaptiveThreshold = useRef(sensitivity)
+  const lastPeaks = useRef<number[]>([])
 
-  // Check if device motion is available
+  // Check device motion availability
   useEffect(() => {
     if (typeof window !== "undefined" && "DeviceMotionEvent" in window) {
       setIsAvailable(true)
@@ -43,61 +55,90 @@ export function useAccurateStepCounter({
     }
   }, [])
 
-  // Calibration function to determine user-specific thresholds
+  // Improved calibration function
   const calibrate = useCallback(() => {
     setIsCalibrating(true)
     calibrationData.current = []
+    
+    const finishCalibration = () => {
+      if (calibrationData.current.length >= CALIBRATION_SAMPLES) {
+        // Calculate noise floor
+        const sorted = [...calibrationData.current].sort((a, b) => a - b)
+        noiseFloor.current = sorted[Math.floor(sorted.length * 0.1)] // 10th percentile
 
-    // Set a timer to end calibration
-    calibrationTimer.current = setTimeout(() => {
-      if (calibrationData.current.length > 0) {
-        // Calculate average and standard deviation of motion
-        const sum = calibrationData.current.reduce((a, b) => a + b, 0)
-        const avg = sum / calibrationData.current.length
+        // Calculate adaptive threshold
+        const mean = calibrationData.current.reduce((a, b) => a + b, 0) / calibrationData.current.length
+        const std = Math.sqrt(
+          calibrationData.current.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / calibrationData.current.length
+        )
+        
+        adaptiveThreshold.current = mean + std * 1.5
+        peakThreshold.current = Math.max(sensitivity, adaptiveThreshold.current)
+        valleyThreshold.current = noiseFloor.current * 2
 
-        const variance =
-          calibrationData.current.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / calibrationData.current.length
-        const stdDev = Math.sqrt(variance)
-
-        // Set thresholds based on calibration data
-        peakThreshold.current = avg + stdDev * 1.5
-        valleyThreshold.current = Math.max(0.1, avg - stdDev * 0.5)
-
-        // Update user sensitivity
-        setUserSensitivity(peakThreshold.current)
-
-        console.log("Calibration complete:", {
-          average: avg,
-          stdDev: stdDev,
-          peakThreshold: peakThreshold.current,
-          valleyThreshold: valleyThreshold.current,
-        })
-
-        if (onCalibrationComplete) {
-          onCalibrationComplete()
-        }
+        setIsCalibrating(false)
+        if (onCalibrationComplete) onCalibrationComplete()
       }
+    }
 
-      setIsCalibrating(false)
-    }, calibrationTime)
+    calibrationTimer.current = setTimeout(finishCalibration, calibrationTime)
 
     return () => {
       if (calibrationTimer.current) {
         clearTimeout(calibrationTimer.current)
-        calibrationTimer.current = null
       }
     }
-  }, [calibrationTime, onCalibrationComplete])
+  }, [calibrationTime, onCalibrationComplete, sensitivity])
 
-  // Improve the detectStep function to be more accurate
+  // Improved motion filtering
+  const filterMotion = useCallback((magnitude: number): number => {
+    // Add to moving average
+    movingAverage.current.push(magnitude)
+    if (movingAverage.current.length > WINDOW_SIZE) {
+      movingAverage.current.shift()
+    }
+
+    // Calculate filtered value
+    const filtered = movingAverage.current.reduce((a, b) => a + b, 0) / movingAverage.current.length
+
+    // Add to sliding window
+    lastValues.current.push(filtered)
+    if (lastValues.current.length > WINDOW_SIZE) {
+      lastValues.current.shift()
+    }
+
+    return filtered
+  }, [])
+
+  // Improved step validation
+  const validateStep = useCallback((timestamp: number): boolean => {
+    const timeSinceLastStep = timestamp - lastStepTime.current
+
+    // Check step frequency
+    if (timeSinceLastStep < MIN_STEP_FREQUENCY || timeSinceLastStep > MAX_STEP_FREQUENCY) {
+      return false
+    }
+
+    // Check step pattern
+    if (lastPeaks.current.length >= 3) {
+      const intervals = lastPeaks.current.slice(1).map((peak, i) => peak - lastPeaks.current[i])
+      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length
+      const deviation = Math.abs(timeSinceLastStep - avgInterval)
+      
+      if (deviation > avgInterval * 0.5) {
+        return false
+      }
+    }
+
+    return true
+  }, [])
+
+  // Improved step detection
   const detectStep = useCallback(
     (event: DeviceMotionEvent) => {
       if (!event.acceleration || !event.acceleration.x || !event.acceleration.y || !event.acceleration.z) {
         return
       }
-
-      // Only process if we're actually tracking
-      if (!isTracking) return
 
       const { x, y, z } = event.acceleration
       const magnitude = Math.sqrt(x * x + y * y + z * z)
@@ -108,31 +149,20 @@ export function useAccurateStepCounter({
         return
       }
 
-      // Add to moving average window (for smoothing)
-      movingAverage.current.push(magnitude)
-      if (movingAverage.current.length > 5) {
-        movingAverage.current.shift()
+      // Filter motion data
+      const filtered = filterMotion(magnitude)
+
+      // Not enough data yet
+      if (lastValues.current.length < WINDOW_SIZE) {
+        return
       }
 
-      // Calculate smoothed value
-      const smoothedMagnitude = movingAverage.current.reduce((a, b) => a + b, 0) / movingAverage.current.length
-
-      // Add to last values for peak detection
-      lastValues.current.push(smoothedMagnitude)
-      if (lastValues.current.length > 10) {
-        lastValues.current.shift()
-      }
-
-      // Need enough values for step detection
-      if (lastValues.current.length < 5) return
-
-      // Get the middle value
       const midIndex = Math.floor(lastValues.current.length / 2)
       const midValue = lastValues.current[midIndex]
 
-      // Check if we're in a step already
+      // Step detection state machine
       if (!inStep.current) {
-        // Check if the middle value is a peak (higher than neighbors and above threshold)
+        // Look for peak
         let isPeak = true
         for (let i = 0; i < lastValues.current.length; i++) {
           if (i !== midIndex && lastValues.current[i] > midValue) {
@@ -141,17 +171,17 @@ export function useAccurateStepCounter({
           }
         }
 
-        // If it's a peak and exceeds threshold, start a step
-        if (isPeak && midValue > peakThreshold.current) {
+        if (isPeak && midValue > peakThreshold.current && midValue > noiseFloor.current) {
           const now = Date.now()
-          // Ensure minimum time between steps to avoid double counting
-          if (now - lastStepTime.current > timeThreshold) {
+          
+          if (validateStep(now)) {
             inStep.current = true
-            lastStepTime.current = now
+            lastPeaks.current.push(now)
+            if (lastPeaks.current.length > 5) lastPeaks.current.shift()
           }
         }
       } else {
-        // We're in a step, look for a valley to complete the step
+        // Look for valley
         let isValley = true
         for (let i = 0; i < lastValues.current.length; i++) {
           if (i !== midIndex && lastValues.current[i] < midValue) {
@@ -160,18 +190,29 @@ export function useAccurateStepCounter({
           }
         }
 
-        // If it's a valley and below threshold, complete the step
         if (isValley && midValue < valleyThreshold.current) {
           inStep.current = false
-          setSteps((prevSteps) => {
-            const newCount = prevSteps + 1
-            if (onStep) onStep(newCount)
-            return newCount
-          })
+          const now = Date.now()
+          
+          // Update step count
+          if (now - lastStepTime.current > timeThreshold) {
+            setSteps((prevSteps) => {
+              const newCount = prevSteps + 1
+              if (onStep) onStep(newCount)
+              return newCount
+            })
+            lastStepTime.current = now
+
+            // Dynamically adjust thresholds based on recent motion
+            const recentMax = Math.max(...lastValues.current)
+            const recentMin = Math.min(...lastValues.current)
+            peakThreshold.current = (peakThreshold.current * 0.8 + recentMax * 0.2)
+            valleyThreshold.current = (valleyThreshold.current * 0.8 + recentMin * 0.2)
+          }
         }
       }
     },
-    [isTracking, isCalibrating, timeThreshold, onStep],
+    [isCalibrating, timeThreshold, onStep, filterMotion, validateStep],
   )
 
   // Start tracking steps
