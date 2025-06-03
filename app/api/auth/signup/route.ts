@@ -13,9 +13,9 @@ function isValidEmail(email: string): boolean {
   return emailRegex.test(email)
 }
 
-// Helper function to normalize email (convert to lowercase)
+// Helper function to normalize email
 function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase()
+  return email.toLowerCase().trim()
 }
 
 export async function POST(req: NextRequest) {
@@ -24,17 +24,36 @@ export async function POST(req: NextRequest) {
   try {
     // Parse request body
     const body = await req.json()
-    const { name, email: rawEmail, password } = body
+    const { name: rawName, email: rawEmail, password } = body
 
     console.log(`Received signup request for: ${rawEmail}`)
 
-    // Validate required fields
-    if (!name || !rawEmail || !password) {
+    // Validate required fields with specific messages
+    if (!rawName || !rawEmail || !password) {
       return NextResponse.json(
         {
-          error: "Missing required fields",
+          error: "Missing required field",
           code: "VALIDATION_ERROR",
-          message: "Name, email, and password are required.",
+          field: !rawName ? "name" : !rawEmail ? "email" : "password",
+          message: !rawName 
+            ? "Please enter your name" 
+            : !rawEmail 
+            ? "Please enter your email address" 
+            : "Please enter a password",
+        },
+        { status: 400 },
+      )
+    }
+
+    // Validate name
+    const name = rawName.trim()
+    if (name.length < 2) {
+      return NextResponse.json(
+        {
+          error: "Invalid name",
+          code: "VALIDATION_ERROR",
+          field: "name",
+          message: "Name must be at least 2 characters long",
         },
         { status: 400 },
       )
@@ -48,26 +67,26 @@ export async function POST(req: NextRequest) {
           error: "Invalid email format",
           code: "VALIDATION_ERROR",
           field: "email",
-          message: "Please enter a valid email address.",
+          message: "Please enter a valid email address",
         },
         { status: 400 },
       )
     }
 
-    // Validate password
+    // Validate password with specific requirements
     if (password.length < 6) {
       return NextResponse.json(
         {
           error: "Password too short",
           code: "VALIDATION_ERROR",
           field: "password",
-          message: "Password must be at least 6 characters long.",
+          message: "Password must be at least 6 characters long",
         },
         { status: 400 },
       )
     }
 
-    // Connect to database
+    // Connect to database with better error handling
     console.log("Connecting to database...")
     try {
       await connectToDatabase()
@@ -75,9 +94,9 @@ export async function POST(req: NextRequest) {
       console.error("Database connection error:", error)
       return NextResponse.json(
         {
-          error: "Database connection failed",
+          error: "Connection failed",
           code: "CONNECTION_ERROR",
-          message: "Unable to connect to the database. Please try again later.",
+          message: "Unable to connect to the server. Please try again later.",
         },
         { status: 503 },
       )
@@ -85,19 +104,17 @@ export async function POST(req: NextRequest) {
 
     // Check if user already exists - with case-insensitive query
     console.log("Checking if user exists...")
-    let existingUser
     try {
-      // Use a case-insensitive query to check for existing email
-      existingUser = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, "i") } })
+      const existingUser = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, "i") } })
 
       if (existingUser) {
         console.log("User already exists with email:", email)
         return NextResponse.json(
           {
-            error: "Email already in use",
+            error: "Account exists",
             code: "DUPLICATE_EMAIL",
             field: "email",
-            message: "This email address is already registered. Please use a different email or try logging in.",
+            message: "An account already exists with this email address. Please try logging in instead.",
           },
           { status: 409 },
         )
@@ -119,41 +136,20 @@ export async function POST(req: NextRequest) {
     console.log("Creating new user...")
     let user
     try {
-      // Create a clean user object with only the fields we need
-      const userData = {
-        name,
-        email,
-        password,
-      }
-
-      user = new User(userData)
+      user = new User({ name, email, password })
       await user.save()
       console.log("User created successfully with ID:", user._id)
     } catch (error) {
       console.error("Error creating user:", error)
       const dbError = handleMongoDbError(error)
 
-      // Special handling for duplicate key errors
       if (dbError.code === "DUPLICATE_KEY") {
-        // If the field is username but we're not using username, it's likely an email conflict
-        if (dbError.field === "username") {
-          return NextResponse.json(
-            {
-              error: "Email already in use",
-              code: "DUPLICATE_EMAIL",
-              field: "email",
-              message: "This email address is already registered. Please use a different email or try logging in.",
-            },
-            { status: 409 },
-          )
-        }
-
         return NextResponse.json(
           {
-            error: `${dbError.field} already in use`,
-            code: "DUPLICATE_FIELD",
-            field: dbError.field,
-            message: dbError.message,
+            error: "Account exists",
+            code: "DUPLICATE_EMAIL",
+            field: "email",
+            message: "An account already exists with this email address. Please try logging in instead.",
           },
           { status: 409 },
         )
@@ -169,38 +165,21 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Create initial fitness data with error handling
+    // Create initial fitness data
     console.log("Creating fitness data...")
     try {
       const fitnessData = new FitnessData({
         userId: user._id,
         profile: {
-          name,
-          email,
-          height: 175,
-          weight: 70,
-          birthdate: "",
-          dietPurpose: "maintain",
-        },
-        goals: {
-          steps: 10000,
-          calories: 2000,
-          water: 2.5,
-          sleep: 8,
-          weight: 70,
-        },
-        settings: {
-          darkMode: false,
-          notifications: true,
-          healthSync: false,
+          name: user.name,
+          email: user.email,
         },
       })
       await fitnessData.save()
       console.log("Fitness data created successfully")
     } catch (error) {
       console.error("Error creating fitness data:", error)
-
-      // Try to delete the user if fitness data creation fails
+      // Try to clean up the created user
       try {
         await User.deleteOne({ _id: user._id })
         console.log("Rolled back user creation")
@@ -208,26 +187,23 @@ export async function POST(req: NextRequest) {
         console.error("Failed to rollback user creation:", rollbackError)
       }
 
-      const dbError = handleMongoDbError(error)
       return NextResponse.json(
         {
-          error: dbError.code,
-          message: "Failed to create user profile. Please try again.",
-          details: dbError.message,
+          error: "REGISTRATION_ERROR",
+          message: "Failed to complete registration. Please try again.",
         },
-        { status: dbError.status },
+        { status: 500 },
       )
     }
 
     // Generate JWT token with error handling
-    console.log("Generating JWT token...")
     let token
     try {
       token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: "7d" })
     } catch (error) {
       console.error("Error generating token:", error)
 
-      // Try to clean up created data
+      // Clean up created data
       try {
         await FitnessData.deleteOne({ userId: user._id })
         await User.deleteOne({ _id: user._id })
@@ -238,8 +214,8 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json(
         {
-          error: "TOKEN_ERROR",
-          message: "Failed to generate authentication token. Please try again.",
+          error: "REGISTRATION_ERROR",
+          message: "Failed to complete registration. Please try again.",
         },
         { status: 500 },
       )
@@ -247,14 +223,13 @@ export async function POST(req: NextRequest) {
 
     console.log("Signup process completed successfully for:", email)
 
-    // Return user data and token
     return NextResponse.json({
-      message: "User registered successfully",
+      message: "Registration successful! Welcome to our fitness community.",
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        hasCompletedOnboarding: false, // Explicitly set to false for new users
+        hasCompletedOnboarding: false,
       },
       token,
     })
@@ -263,8 +238,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error: "REGISTRATION_ERROR",
-        message: "An unexpected error occurred during registration. Please try again.",
-        details: error instanceof Error ? error.message : String(error),
+        message: "An unexpected error occurred. Please try again later.",
       },
       { status: 500 },
     )

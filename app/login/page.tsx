@@ -56,6 +56,59 @@ export default function LoginPage() {
     }
   }
 
+  // Map API error to form field
+  useEffect(() => {
+    if (error) {
+      // Handle specific error types
+      if (error.code === "DUPLICATE_EMAIL") {
+        setFormErrors((prev) => ({
+          ...prev,
+          email: "An account already exists with this email address. Please try logging in instead.",
+        }))
+      } else if (error.code === "AUTH_ERROR" && error.field === "password") {
+        setFormErrors((prev) => ({
+          ...prev,
+          password: "Incorrect password. Please try again or use 'Forgot Password' if you need to reset it.",
+        }))
+      } else if (error.code === "AUTH_ERROR" && error.field === "email") {
+        setFormErrors((prev) => ({
+          ...prev,
+          email: "No account found with this email address. Please check your email or create an account.",
+        }))
+      } else if (error.code === "VALIDATION_ERROR") {
+        // Handle validation errors
+        if (error.field) {
+          setFormErrors((prev) => ({
+            ...prev,
+            [error.field]: error.message,
+          }))
+        } else {
+          setFormErrors((prev) => ({
+            ...prev,
+            general: error.message,
+          }))
+        }
+      } else if (error.code === "CONNECTION_ERROR") {
+        setFormErrors((prev) => ({
+          ...prev,
+          general: "Unable to connect to the server. Please check your internet connection and try again.",
+        }))
+      } else if (error.field) {
+        // Handle other field-specific errors
+        setFormErrors((prev) => ({
+          ...prev,
+          [error.field]: error.message,
+        }))
+      } else {
+        // Handle general errors
+        setFormErrors((prev) => ({
+          ...prev,
+          general: error.message || "An unexpected error occurred. Please try again.",
+        }))
+      }
+    }
+  }, [error])
+
   // Client-side validation
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {}
@@ -64,11 +117,15 @@ export default function LoginPage() {
       errors.name = "Name must be at least 2 characters long"
     }
 
-    if (!email || !email.includes("@") || !email.includes(".")) {
+    if (!email) {
+      errors.email = "Please enter your email address"
+    } else if (!email.includes("@") || !email.includes(".")) {
       errors.email = "Please enter a valid email address"
     }
 
-    if (!password || password.length < 6) {
+    if (!password) {
+      errors.password = "Please enter your password"
+    } else if (password.length < 6) {
       errors.password = "Password must be at least 6 characters long"
     }
 
@@ -76,8 +133,13 @@ export default function LoginPage() {
     return Object.keys(errors).length === 0
   }
 
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Clear previous errors
+    setFormErrors({})
+    clearError()
 
     // Validate form before submission
     if (!validateForm()) {
@@ -95,55 +157,19 @@ export default function LoginPage() {
         success = await register(name, email, password)
       }
 
-      // If successful, the auth context will handle redirection
       if (!success) {
         // If not successful, errors will be set in the auth context
-        // and mapped to form fields in the useEffect below
+        // and mapped to form fields in the useEffect above
+        setIsSubmitting(false)
       }
     } catch (err) {
       console.error("Authentication error:", err)
       setFormErrors({
-        general: err instanceof Error ? err.message : "An unexpected error occurred",
+        general: err instanceof Error ? err.message : "An unexpected error occurred. Please try again.",
       })
-    } finally {
       setIsSubmitting(false)
     }
   }
-
-  // Map API error to form field
-  useEffect(() => {
-    if (error) {
-      // Handle specific error types
-      if (error.code === "DUPLICATE_KEY" || error.code === "DUPLICATE_EMAIL") {
-        setFormErrors((prev) => ({
-          ...prev,
-          email: "This email address is already registered. Please use a different email or try logging in.",
-        }))
-      } else if (error.code === "AUTH_ERROR" && error.message.includes("password")) {
-        setFormErrors((prev) => ({
-          ...prev,
-          password: "Invalid password. Please try again.",
-        }))
-      } else if (error.code === "AUTH_ERROR" && error.message.includes("email")) {
-        setFormErrors((prev) => ({
-          ...prev,
-          email: "Email not found. Please check your email or create an account.",
-        }))
-      } else if (error.field) {
-        // Handle field-specific errors
-        setFormErrors((prev) => ({
-          ...prev,
-          [error.field]: error.message,
-        }))
-      } else {
-        // Handle general errors
-        setFormErrors((prev) => ({
-          ...prev,
-          general: error.message,
-        }))
-      }
-    }
-  }, [error])
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">

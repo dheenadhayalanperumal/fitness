@@ -8,30 +8,60 @@ const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json()
+    const { email: rawEmail, password } = await req.json()
 
     // Validate input
-    if (!email || !password) {
+    if (!rawEmail || !password) {
       return NextResponse.json(
         {
           error: "Missing credentials",
-          message: "Email and password are required",
+          message: !rawEmail ? "Email is required" : "Password is required",
           code: "VALIDATION_ERROR",
+          field: !rawEmail ? "email" : "password"
+        },
+        { status: 400 },
+      )
+    }
+
+    // Normalize email
+    const email = rawEmail.toLowerCase().trim()
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        {
+          error: "Invalid email",
+          message: "Please enter a valid email address",
+          code: "VALIDATION_ERROR",
+          field: "email"
         },
         { status: 400 },
       )
     }
 
     // Connect to database
-    await connectToDatabase()
+    try {
+      await connectToDatabase()
+    } catch (error) {
+      console.error("Database connection error:", error)
+      return NextResponse.json(
+        {
+          error: "Server error",
+          message: "Unable to connect to the server. Please try again later.",
+          code: "CONNECTION_ERROR"
+        },
+        { status: 503 },
+      )
+    }
 
-    // Find user by email
-    const user = await User.findOne({ email })
+    // Find user by email - case insensitive
+    const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, "i") } })
     if (!user) {
       return NextResponse.json(
         {
           error: "User not found",
-          message: "Email not found. Please check your email or create an account.",
+          message: "No account found with this email address. Please check your email or create an account.",
           code: "AUTH_ERROR",
           field: "email",
         },
@@ -45,7 +75,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error: "Invalid password",
-          message: "Invalid password. Please try again.",
+          message: "Incorrect password. Please try again or use 'Forgot Password' if you need to reset it.",
           code: "AUTH_ERROR",
           field: "password",
         },
@@ -77,7 +107,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error: "Server error",
-        message: "An error occurred during login",
+        message: "An unexpected error occurred. Please try again later.",
         code: "SERVER_ERROR",
       },
       { status: 500 },
