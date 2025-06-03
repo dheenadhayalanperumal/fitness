@@ -1,17 +1,16 @@
-import type { NextRequest } from "next/server"
+import { type NextRequest } from "next/server"
 import jwt from "jsonwebtoken"
 
-const JWT_SECRET = process.env.JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
 
-export async function verifyToken(req: NextRequest): Promise<string | null> {
+export async function verifyAuth(req: NextRequest): Promise<string | null> {
   try {
-    // Get token from Authorization header
-    const authHeader = req.headers.get("Authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const token = req.headers.get("Authorization")?.replace("Bearer ", "")
+    
+    if (!token) {
       return null
     }
 
-    const token = authHeader.substring(7)
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string }
     return decoded.userId
   } catch (error) {

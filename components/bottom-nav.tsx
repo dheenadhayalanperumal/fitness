@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Activity, Home, Utensils, Weight, User } from "lucide-react"
+import { Home, Utensils, Weight, User } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -20,10 +20,6 @@ export function BottomNav() {
         <Link href="/" className="flex flex-col items-center p-2">
           <Home className={cn("h-5 w-5", pathname === "/" ? "text-[#27AE60]" : "")} />
           <span className="text-xs mt-1">Home</span>
-        </Link>
-        <Link href="/steps" className="flex flex-col items-center p-2">
-          <Activity className={cn("h-5 w-5", pathname === "/steps" ? "text-[#27AE60]" : "")} />
-          <span className="text-xs mt-1">Steps</span>
         </Link>
         <Link href="/diet" className="flex flex-col items-center p-2">
           <Utensils className={cn("h-5 w-5", pathname === "/diet" ? "text-[#27AE60]" : "")} />

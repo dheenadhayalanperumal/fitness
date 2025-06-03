@@ -134,7 +134,6 @@ const defaultProfile: UserProfileType = {
 }
 
 const defaultGoals: UserGoals = {
-  steps: 10000,
   calories: 2000,
   water: 2.5, // in liters
   sleep: 8, // in hours
@@ -148,14 +147,6 @@ const defaultSettings: AppSettings = {
 }
 
 const defaultAchievements: Achievement[] = [
-  {
-    id: "1",
-    name: "10K Steps",
-    description: "Completed 10,000 steps in a day",
-    icon: "award",
-    color: "#27AE60",
-    unlocked: false,
-  },
   {
     id: "2",
     name: "Water Master",
@@ -779,7 +770,6 @@ export function FitnessProvider({ children }: { children: React.ReactNode }) {
     // Add to activity history
     if (Object.keys(newGoals).length > 0) {
       const descriptions = []
-      if (newGoals.steps) descriptions.push(`steps: ${newGoals.steps}`)
       if (newGoals.calories) descriptions.push(`calories: ${newGoals.calories}`)
       if (newGoals.water) descriptions.push(`water: ${newGoals.water}L`)
       if (newGoals.sleep) descriptions.push(`sleep: ${newGoals.sleep}h`)

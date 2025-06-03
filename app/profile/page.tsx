@@ -114,21 +114,6 @@ export default function ProfilePage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 rounded-full bg-[#27AE60]"></div>
-                        <span>Steps</span>
-                      </div>
-                      <div className="text-sm">
-                        {weeklyProgress.steps.current.toLocaleString()} / {weeklyProgress.steps.goal.toLocaleString()}
-                      </div>
-                    </div>
-                    <Progress
-                      value={Math.min(100, (weeklyProgress.steps.current / weeklyProgress.steps.goal) * 100)}
-                      className="h-2"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
                         <div className="h-4 w-4 rounded-full bg-[#2980B9]"></div>
                         <span>Water</span>
                       </div>
